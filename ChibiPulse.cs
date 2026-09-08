@@ -1,6 +1,11 @@
 // ═══════════════════════════════════════════════════════════════════════════
 //  ChibiPulse — Tiny-timer HUD for keyboard-map runs
-//  https://github.com/  (see README.md)
+//
+//  Copyright (c) 2026 sraj.  All rights reserved.
+//  Licensed under the MIT License — see LICENSE. The copyright notice above
+//  must be preserved in any copy or substantial portion of this software.
+//
+//  https://github.com/0Sraj/ChibiPulse
 //
 //  Single-file WinForms app, no external packages.
 //  Build:  build.bat        (uses the .NET Framework C# compiler shipped with Windows)
@@ -19,6 +24,17 @@ using System.Threading;
 using System.Windows.Forms;
 
 using Timer = System.Windows.Forms.Timer;   // disambiguate from System.Threading.Timer
+
+// Authorship, baked into the executable itself: Windows shows these under
+// File Properties -> Details, and they survive renaming or copying the exe.
+[assembly: AssemblyTitle("ChibiPulse")]
+[assembly: AssemblyProduct("ChibiPulse")]
+[assembly: AssemblyDescription("Precision tiny-timer HUD with auto-jump - by sraj")]
+[assembly: AssemblyCompany("sraj")]
+[assembly: AssemblyCopyright("Copyright (c) 2026 sraj. Licensed under the MIT License.")]
+[assembly: AssemblyTrademark("ChibiPulse by sraj")]
+[assembly: AssemblyVersion("2.2.0.0")]
+[assembly: AssemblyFileVersion("2.2.0.0")]
 
 namespace ChibiPulse
 {
@@ -1090,6 +1106,10 @@ namespace ChibiPulse
             using (var b = new SolidBrush(Theme.Magenta))
                 g.DrawString("PULSE", Theme.Brand, b, Theme.F(58) + g.MeasureString("CHIBI ", Theme.Brand).Width, Theme.F(9));
             Gfx.Text(g, "Tiny timer  ·  HUD overlay  ·  auto-jump", Theme.Tag, Theme.Dim, Theme.F(60), Theme.F(34));
+
+            // Author credit, right-aligned to stop short of the window buttons.
+            Gfx.TextIn(g, "by sraj", Theme.Chip, Color.FromArgb(210, Theme.Magenta),
+                       new RectangleF(Width - Theme.F(320), Theme.F(17), Theme.F(210), Theme.F(22)), Theme.Right);
         }
 
         static void AmbientGlow(Graphics g, int x, int y, int size, Color c, int alpha)
@@ -1335,6 +1355,10 @@ namespace ChibiPulse
             // ── footer hint ──
             Gfx.TextIn(g, "اضغط زر التحول داخل اللعبة ليبدأ العد تلقائياً", Theme.Label, Theme.Dim,
                        new RectangleF(0, Height - Theme.F(38), Width, Theme.F(20)), Theme.Center);
+
+            // ── author credit ──
+            Gfx.TextIn(g, "ChibiPulse  ·  by sraj", Theme.ChipSm, Color.FromArgb(150, accent),
+                       new RectangleF(0, Height - Theme.F(20), Width, Theme.F(16)), Theme.Center);
         }
 
         void RingTicks(Graphics g, float cx, float cy, float radius)
