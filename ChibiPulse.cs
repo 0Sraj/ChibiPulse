@@ -2329,9 +2329,15 @@ namespace ChibiPulse
             Gfx.Text(g, label, Theme.ChipSm, Color.FromArgb(200, accent), Theme.F(16), Theme.F(13));
             Gfx.Text(g, remain.ToString("00.00", CultureInfo.InvariantCulture) + "s", Theme.MonoOv, accent, Theme.F(14), Theme.F(30));
 
+            // Author credit. Sits in the gap between the readout and the ring: the widest
+            // the time can get is "120.00s", which still ends left of this band.
+            Gfx.TextIn(g, "by sraj", Theme.ChipSm, Color.FromArgb(135, accent),
+                       new RectangleF(Width - Theme.F(140), Theme.F(5), Theme.F(62), Theme.F(14)), Theme.Right);
+
+            // Pushed below the credit so the two never overlap.
             if (locked)
                 Gfx.TextIn(g, "LOCKED", Theme.ChipSm, Theme.Dim,
-                           new RectangleF(Width - Theme.F(150), Theme.F(10), Theme.F(70), Theme.F(16)), Theme.Right);
+                           new RectangleF(Width - Theme.F(150), Theme.F(24), Theme.F(70), Theme.F(16)), Theme.Right);
 
             // ── progress rail ──
             float railX = Theme.F(14), railW = Width - Theme.F(100), railY = Height - Theme.F(14);
