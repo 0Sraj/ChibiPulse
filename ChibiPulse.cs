@@ -418,6 +418,10 @@ namespace ChibiPulse
         void Build()
         {
             Text = "ChibiPulse";
+            // Pull the win32 icon back out of our own exe so the taskbar and Alt-Tab show it.
+            // The window is borderless, so there is no caption bar to carry it otherwise.
+            try { Icon = System.Drawing.Icon.ExtractAssociatedIcon(Application.ExecutablePath); }
+            catch { /* the icon is cosmetic - never let it stop startup */ }
             ClientSize = new Size(Theme.P(W), Theme.P(H));
             FormBorderStyle = FormBorderStyle.None;
             StartPosition = FormStartPosition.CenterScreen;
