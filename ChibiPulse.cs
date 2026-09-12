@@ -519,7 +519,7 @@ namespace ChibiPulse
         void BuildTiming()
         {
             Caption(cardTiming, "مدة التحول · Tiny duration (s)", 20, 52);
-            spinDur = NewSpinner(cardTiming, 20, 72, 170, 34, cfg.Duration, 0.5, 120, 0.1, Theme.Magenta);
+            spinDur = NewSpinner(cardTiming, 20, 72, 170, 34, cfg.Duration, 0.5, 120, 0.01, 10, Theme.Magenta);
             spinDur.ValueChanged += delegate { cfg.Duration = spinDur.Value; SyncHero(); MarkDirty(); };
 
             int px = 210;
@@ -537,16 +537,17 @@ namespace ChibiPulse
                 px += 58;
             }
 
+            // 172 wide, not 150: four hit zones plus a value that can read "120.00" need it.
             Caption(cardTiming, "تحذير مبكر · Warn before", 20, 118);
-            spinWarn = NewSpinner(cardTiming, 20, 140, 150, 30, cfg.WarnBefore, 0.1, 15, 0.1, Theme.Amber);
+            spinWarn = NewSpinner(cardTiming, 20, 140, 172, 30, cfg.WarnBefore, 0.1, 15, 0.01, 1, Theme.Amber);
             spinWarn.ValueChanged += delegate { cfg.WarnBefore = spinWarn.Value; MarkDirty(); };
 
-            Caption(cardTiming, "كول داون · Cooldown", 200, 118);
-            spinCd = NewSpinner(cardTiming, 200, 140, 150, 30, cfg.Cooldown, 0, 60, 0.5, Theme.Red);
+            Caption(cardTiming, "كول داون · Cooldown", 204, 118);
+            spinCd = NewSpinner(cardTiming, 204, 140, 172, 30, cfg.Cooldown, 0, 60, 0.01, 10, Theme.Red);
             spinCd.ValueChanged += delegate { cfg.Cooldown = spinCd.Value; MarkDirty(); };
 
-            Caption(cardTiming, "وقت القفزة · Jump at", 380, 118);
-            spinJump = NewSpinner(cardTiming, 380, 140, 150, 30, cfg.JumpTime, 0.1, 120, 0.1, Theme.Green);
+            Caption(cardTiming, "وقت القفزة · Jump at", 388, 118);
+            spinJump = NewSpinner(cardTiming, 388, 140, 172, 30, cfg.JumpTime, 0.1, 120, 0.01, 10, Theme.Green);
             spinJump.ValueChanged += delegate { cfg.JumpTime = spinJump.Value; SyncHero(); MarkDirty(); };
         }
 
@@ -636,9 +637,15 @@ namespace ChibiPulse
             };
         }
 
-        NeonSpinner NewSpinner(Control parent, int x, int y, int w, int h, double value, double min, double max, double step, Color accent)
+        NeonSpinner NewSpinner(Control parent, int x, int y, int w, int h,
+                               double value, double min, double max, double step, double bigStep, Color accent)
         {
-            var s = new NeonSpinner { Bounds = R(x, y, w, h), Min = min, Max = max, Step = step, Accent = accent, Parent = parent };
+            var s = new NeonSpinner
+            {
+                Bounds = R(x, y, w, h),
+                Min = min, Max = max, Step = step, BigStep = bigStep,
+                Accent = accent, Parent = parent
+            };
             s.SetValueQuiet(value);
             return s;
         }
@@ -2008,12 +2015,21 @@ namespace ChibiPulse
     public class NeonSpinner : Control
     {
         public double Min = 0, Max = 100, Step = 0.5;
+
+        /// <summary>
+        /// Coarse step for the outer pair of buttons. At Step = 0.1 it takes ~960 clicks to
+        /// walk this field from one end of its range to the other, which is what the coarse
+        /// pair is for. Leave it at 0 to show only the fine buttons.
+        /// </summary>
+        public double BigStep = 0;
+
         public Color Accent = Theme.Cyan;
         public event EventHandler ValueChanged;
 
         double val = 10;
         int direction;
-        int hoverZone;      // -1 minus, +1 plus, 0 none
+        int repeats;        // ticks held, so a long press can graduate to a bigger step
+        int hoverZone;      // -2 coarse minus, -1 fine minus, 0 none, +1 fine plus, +2 coarse plus
         readonly Timer repeat;
 
         public double Value
@@ -2046,19 +2062,37 @@ namespace ChibiPulse
             BackColor = Color.Transparent;
 
             repeat = new Timer { Interval = 380 };
-            repeat.Tick += delegate { repeat.Interval = 55; Bump(); };
+            repeat.Tick += delegate { repeat.Interval = 55; repeats++; Bump(); };
         }
 
-        int Zone { get { return Theme.P(34); } }
+        // Zone widths measured against the text they hold: "+10" needs 23px, "−" needs 14,
+        // and the value can read "120.00" at 55px.
+        int Fine { get { return Theme.P(26); } }
+        int Coarse { get { return BigStep > 0 ? Theme.P(28) : 0; } }
 
         int ZoneAt(int x)
         {
-            if (x < Zone) return -1;
-            if (x > Width - Zone) return 1;
+            int c = Coarse, f = Fine;
+            if (c > 0 && x < c) return -2;
+            if (x < c + f) return -1;
+            if (c > 0 && x > Width - c) return 2;
+            if (x > Width - c - f) return 1;
             return 0;
         }
 
-        void Bump() { Value = val + direction * Step; }
+        void Bump()
+        {
+            if (direction == 0) return;
+            double d = (Math.Abs(direction) == 2) ? BigStep : Step;
+
+            // Held down, the fine button graduates to the next digit up. Without this a
+            // 0.01 step and a 10 step leave the middle of the range 65 clicks away.
+            if (Math.Abs(direction) == 1 && repeats > 15) d *= 10;
+
+            Value = val + Math.Sign(direction) * d;
+        }
+
+        static string StepLabel(double d) { return d.ToString("0.##", CultureInfo.InvariantCulture); }
 
         protected override void OnMouseEnter(EventArgs e)
         {
@@ -2077,17 +2111,19 @@ namespace ChibiPulse
         {
             direction = ZoneAt(e.X);
             if (direction == 0) return;
+            repeats = 0;
             Bump();
             repeat.Interval = 380;
             repeat.Start();
         }
 
-        protected override void OnMouseUp(MouseEventArgs e) { repeat.Stop(); direction = 0; base.OnMouseUp(e); }
+        protected override void OnMouseUp(MouseEventArgs e) { repeat.Stop(); direction = 0; repeats = 0; base.OnMouseUp(e); }
 
         protected override void OnMouseLeave(EventArgs e)
         {
             repeat.Stop();
             direction = 0;
+            repeats = 0;
             hoverZone = 0;
             Invalidate();
             base.OnMouseLeave(e);
@@ -2095,7 +2131,9 @@ namespace ChibiPulse
 
         protected override void OnMouseWheel(MouseEventArgs e)
         {
-            Value = val + (e.Delta > 0 ? Step : -Step);
+            // Hold Shift for the coarse step, matching the outer pair of buttons.
+            double d = (BigStep > 0 && (ModifierKeys & Keys.Shift) != 0) ? BigStep : Step;
+            Value = val + (e.Delta > 0 ? d : -d);
             var handled = e as HandledMouseEventArgs;
             if (handled != null) handled.Handled = true;
         }
@@ -2112,19 +2150,35 @@ namespace ChibiPulse
                 Gfx.Stroke(g, path, Color.FromArgb(110, Accent), Theme.F(1.3));
             }
 
-            DrawZone(g, "−", new RectangleF(0, 0, Zone, Height), hoverZone == -1);
-            DrawZone(g, "+", new RectangleF(Width - Zone, 0, Zone, Height), hoverZone == 1);
+            int c = Coarse, f = Fine;
+
+            if (c > 0)
+            {
+                string big = StepLabel(BigStep);
+                DrawZone(g, "−" + big, new RectangleF(0, 0, c, Height), hoverZone == -2, Theme.ChipSm);
+                DrawZone(g, "+" + big, new RectangleF(Width - c, 0, c, Height), hoverZone == 2, Theme.ChipSm);
+
+                // Hairlines separating coarse from fine, so the four zones read as four buttons.
+                using (var p = new Pen(Color.FromArgb(55, Accent), 1))
+                {
+                    g.DrawLine(p, c, Theme.F(6), c, Height - Theme.F(6));
+                    g.DrawLine(p, Width - c, Theme.F(6), Width - c, Height - Theme.F(6));
+                }
+            }
+
+            DrawZone(g, "−", new RectangleF(c, 0, f, Height), hoverZone == -1, Font);
+            DrawZone(g, "+", new RectangleF(Width - c - f, 0, f, Height), hoverZone == 1, Font);
 
             Gfx.TextIn(g, val.ToString("0.00", CultureInfo.InvariantCulture), Font, Accent,
-                       new RectangleF(Zone, 0, Width - Zone * 2, Height), Theme.Center);
+                       new RectangleF(c + f, 0, Width - (c + f) * 2, Height), Theme.Center);
         }
 
-        void DrawZone(Graphics g, string glyph, RectangleF rc, bool hot)
+        void DrawZone(Graphics g, string glyph, RectangleF rc, bool hot, Font font)
         {
             if (hot)
                 using (var path = Gfx.Round(rc.X + Theme.F(3), rc.Y + Theme.F(3), rc.Width - Theme.F(6), rc.Height - Theme.F(6), Theme.F(6)))
                     Gfx.Fill(g, path, Color.FromArgb(40, Accent));
-            Gfx.TextIn(g, glyph, Font, hot ? Accent : Theme.Sub, rc, Theme.Center);
+            Gfx.TextIn(g, glyph, font, hot ? Accent : Theme.Sub, rc, Theme.Center);
         }
 
         protected override void Dispose(bool disposing)
