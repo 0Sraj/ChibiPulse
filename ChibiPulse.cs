@@ -519,7 +519,7 @@ namespace ChibiPulse
         void BuildTiming()
         {
             Caption(cardTiming, "مدة التحول · Tiny duration (s)", 20, 52);
-            spinDur = NewSpinner(cardTiming, 20, 72, 170, 34, cfg.Duration, 0.5, 120, 0.01, 10, Theme.Magenta);
+            spinDur = NewSpinner(cardTiming, 20, 72, 170, 34, cfg.Duration, 0.5, 120, 0.01, 0.1, Theme.Magenta);
             spinDur.ValueChanged += delegate { cfg.Duration = spinDur.Value; SyncHero(); MarkDirty(); };
 
             int px = 210;
@@ -539,15 +539,15 @@ namespace ChibiPulse
 
             // 172 wide, not 150: four hit zones plus a value that can read "120.00" need it.
             Caption(cardTiming, "تحذير مبكر · Warn before", 20, 118);
-            spinWarn = NewSpinner(cardTiming, 20, 140, 172, 30, cfg.WarnBefore, 0.1, 15, 0.01, 1, Theme.Amber);
+            spinWarn = NewSpinner(cardTiming, 20, 140, 172, 30, cfg.WarnBefore, 0.1, 15, 0.01, 0.1, Theme.Amber);
             spinWarn.ValueChanged += delegate { cfg.WarnBefore = spinWarn.Value; MarkDirty(); };
 
             Caption(cardTiming, "كول داون · Cooldown", 204, 118);
-            spinCd = NewSpinner(cardTiming, 204, 140, 172, 30, cfg.Cooldown, 0, 60, 0.01, 10, Theme.Red);
+            spinCd = NewSpinner(cardTiming, 204, 140, 172, 30, cfg.Cooldown, 0, 60, 0.01, 0.1, Theme.Red);
             spinCd.ValueChanged += delegate { cfg.Cooldown = spinCd.Value; MarkDirty(); };
 
             Caption(cardTiming, "وقت القفزة · Jump at", 388, 118);
-            spinJump = NewSpinner(cardTiming, 388, 140, 172, 30, cfg.JumpTime, 0.1, 120, 0.01, 10, Theme.Green);
+            spinJump = NewSpinner(cardTiming, 388, 140, 172, 30, cfg.JumpTime, 0.1, 120, 0.01, 0.1, Theme.Green);
             spinJump.ValueChanged += delegate { cfg.JumpTime = spinJump.Value; SyncHero(); MarkDirty(); };
         }
 
@@ -2017,9 +2017,8 @@ namespace ChibiPulse
         public double Min = 0, Max = 100, Step = 0.5;
 
         /// <summary>
-        /// Coarse step for the outer pair of buttons. At Step = 0.1 it takes ~960 clicks to
-        /// walk this field from one end of its range to the other, which is what the coarse
-        /// pair is for. Leave it at 0 to show only the fine buttons.
+        /// Coarse step for the outer pair of buttons — ten of the fine step, so the digit
+        /// one place up moves by one. Leave it at 0 to show only the fine buttons.
         /// </summary>
         public double BigStep = 0;
 
@@ -2065,10 +2064,10 @@ namespace ChibiPulse
             repeat.Tick += delegate { repeat.Interval = 55; repeats++; Bump(); };
         }
 
-        // Zone widths measured against the text they hold: "+10" needs 23px, "−" needs 14,
-        // and the value can read "120.00" at 55px.
+        // Zone widths measured against the text they hold: "+0.1" needs 26px, "−" needs 14,
+        // and the value can still read "120.00" at 55px in the 60px left between them.
         int Fine { get { return Theme.P(26); } }
-        int Coarse { get { return BigStep > 0 ? Theme.P(28) : 0; } }
+        int Coarse { get { return BigStep > 0 ? Theme.P(30) : 0; } }
 
         int ZoneAt(int x)
         {
@@ -2085,9 +2084,9 @@ namespace ChibiPulse
             if (direction == 0) return;
             double d = (Math.Abs(direction) == 2) ? BigStep : Step;
 
-            // Held down, the fine button graduates to the next digit up. Without this a
-            // 0.01 step and a 10 step leave the middle of the range 65 clicks away.
-            if (Math.Abs(direction) == 1 && repeats > 15) d *= 10;
+            // Held down, either button graduates one more digit up, so a long press can
+            // still cross a wide range: 0.01 -> 0.1 on the fine pair, 0.1 -> 1 on the coarse.
+            if (repeats > 15) d *= 10;
 
             Value = val + Math.Sign(direction) * d;
         }
